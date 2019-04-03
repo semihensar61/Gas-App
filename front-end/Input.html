@@ -1,0 +1,404 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <meta charset="utf-8" />
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/3/w3.css">
+<!-- Navigation -->
+<nav class="w3-bar w3-darkblue">
+  </b>
+</nav>
+    <style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map {
+        height: 80%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html,
+      body {
+        height: 78%;
+        margin: 0;
+        padding: 0;
+      }
+      .controls {
+        margin-top: 10px;
+        border: 1px solid transparent;
+        border-radius: 2px 0 0 2px;
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        height: 32px;
+        outline: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      #origin-input,
+      #destination-input {
+        background-color: #fff;
+        font-family: Roboto;
+        font-size: 15px;
+        font-weight: 300;
+        margin-left: 12px;
+        padding: 0 11px 0 13px;
+        text-overflow: ellipsis;
+        width: 200px;
+      }
+
+      #origin-input:focus,
+      #destination-input:focus {
+        border-color: #4d90fe;
+      }
+
+      #mode-selector {
+        color: #fff;
+        background-color: #4d90fe;
+        margin-left: 12px;
+        padding: 5px 11px 0px 11px;
+      }
+
+      #mode-selector label {
+        font-family: Roboto;
+        font-size: 13px;
+        font-weight: 300;
+      }
+    </style>
+  </head>
+  <body>
+    <input
+      id="origin-input"
+      class="controls"
+      type="text"
+      placeholder="Enter an origin location"
+    />
+
+    <input
+      id="destination-input"
+      class="controls"
+      type="text"
+      placeholder="Enter a destination location"
+    />
+
+    
+
+    <div id="map"></div>
+
+    <script>
+
+      let corArr = [];
+      var totalDistance = 0;
+      let originPlaceId;
+      let destinationPlaceId;
+
+      function initMap() {
+        var map = new google.maps.Map(document.getElementById("map"), {
+          mapTypeControl: false,
+          center: {lat: 38.684847, lng: -77.32043 },
+          zoom: 8
+        });
+        new AutocompleteDirectionsHandler(map);
+      }
+      /**
+       * @constructor
+       */
+      function AutocompleteDirectionsHandler(map) {
+        this.map = map;
+        this.originPlaceId = null;
+        this.destinationPlaceId = null;
+        this.travelMode = "DRIVING";
+        var originInput = document.getElementById("origin-input");
+        var destinationInput = document.getElementById("destination-input");
+        var modeSelector = document.getElementById("mode-selector");
+        this.directionsService = new google.maps.DirectionsService();
+        this.directionsDisplay = new google.maps.DirectionsRenderer();
+        this.directionsDisplay.setMap(map);
+
+        var originAutocomplete = new google.maps.places.Autocomplete(
+          originInput,
+          { placeIdOnly: true }
+        );
+        var destinationAutocomplete = new google.maps.places.Autocomplete(
+          destinationInput,
+          { placeIdOnly: true }
+        );
+       
+
+        this.setupPlaceChangedListener(originAutocomplete, "ORIG");
+        this.setupPlaceChangedListener(destinationAutocomplete, "DEST");
+
+        this.map.controls[google.maps.ControlPosition.TOP_LEFT].push(
+          originInput
+        );
+        this.map.controls[google.maps.ControlPosition.TOP_LEFT].push(
+          destinationInput
+        );
+        this.map.controls[google.maps.ControlPosition.TOP_LEFT].push(
+          modeSelector
+        );
+      }
+
+      // Sets a listener on a radio button to change the filter type on Places
+      // Autocomplete.
+      AutocompleteDirectionsHandler.prototype.setupClickListener = function(
+        id,
+        mode
+      ) {
+        var radioButton = document.getElementById(id);
+        var me = this;
+        radioButton.addEventListener("click", function() {
+          me.travelMode = mode;
+          me.route();
+        });
+      };
+
+      AutocompleteDirectionsHandler.prototype.setupPlaceChangedListener = function(
+        autocomplete,
+        mode
+      ) {
+        var me = this;
+        autocomplete.bindTo("bounds", this.map);
+        autocomplete.addListener("place_changed", function() {
+          var place = autocomplete.getPlace();
+          if (!place.place_id) {
+            window.alert("Please select an option from the dropdown list.");
+            return;
+          }
+          if (mode === "ORIG") {
+            me.originPlaceId = place.place_id;
+          } else {
+            me.destinationPlaceId = place.place_id;
+          }
+          me.route();
+        });
+      };
+
+      AutocompleteDirectionsHandler.prototype.route = function() {
+        
+        destinationPlaceId = this.destinationPlaceId;
+            originPlaceId = this.originPlaceId;
+        if (!this.originPlaceId || !this.destinationPlaceId) {
+          return;
+        }
+        var me = this;
+
+        this.directionsService.route(
+          {
+            origin: { placeId: this.originPlaceId },
+            destination: { placeId: this.destinationPlaceId },
+            travelMode: 'DRIVING'
+          },
+          function(response, status) {
+            if (status === "OK") {
+              me.directionsDisplay.setDirections(response);
+              var polyline = new google.maps.Polyline({
+                path: [],
+                strokeColor: "#0000FF",
+                strokeWeight: 3
+              });
+              var bounds = new google.maps.LatLngBounds();
+
+              var legs = response.routes[0].legs;
+              
+              
+              var spaceNum;
+              var dist  = legs[0].distance.text;
+              console.log(dist);
+              var cont = dist.includes(',')
+              if(cont == true) {
+                 spaceNum = dist.indexOf(",");
+              }else{
+                 spaceNum = dist.indexOf(" ");
+              }
+
+              
+              var distanceNum = dist.substring(0, spaceNum);
+
+              var cont1 = distanceNum.includes('.');
+              if(cont1 == true) { 
+                distanceNum = distanceNum.replace('.','');
+              };
+
+              console.log('falan');
+              console.log(distanceNum);
+
+              for (i = 0; i < legs.length; i++) {
+                var steps = legs[i].steps;
+                for (j = 0; j < steps.length; j++) {
+                  var nextSegment = steps[j].path;
+                  for (k = 0; k < nextSegment.length; k++) {
+                    polyline.getPath().push(nextSegment[k]);
+                    bounds.extend(nextSegment[k]);
+                  }
+                }
+              }
+              // console.log(polyline);
+
+              var codeStr = [];
+              var pathArr = polyline.getPath();
+
+              for (var i = 0; i < pathArr.length; i++) {
+                let obj = {
+                  lat: pathArr.getAt(i).lat(),
+                  lng: pathArr.getAt(i).lng()
+                };
+
+                codeStr.push(obj);
+              }
+              console.log(codeStr);
+              var plus = codeStr.length/distanceNum;
+              plus  = Math.round(plus);
+              console.log(codeStr.length + 'codeSTRlenght')
+              console.log(plus + 'PLUS');
+              
+              
+              for (let i = 15; i < codeStr.length; i = i + plus) {
+                corArr.push(codeStr[i]);
+              }
+              console.log(corArr);
+
+            } else {
+              window.alert("Directions request failed due to " + status);
+            }
+          }
+        );
+      };
+      function buttonOne ( ) {
+                   var RemainingGas =  document.getElementById('RemainingGas').value;
+                   var DepoCapacity =  document.getElementById('DepoCapacity').value;
+                   var Avrg = document.getElementById('Average').value;
+                    console.log(corArr);
+
+                     $.ajax({
+                        type : 'POST',
+                        url: 'http://localhost:3000/map',
+                        data : {
+                          timeout: 240000,
+                            points : corArr,
+                            depoKalan : RemainingGas,
+                            avrgConsumption : Avrg,
+                            depoCapacity : DepoCapacity,
+                            originId : this.originPlaceId,
+                            destinationId: this.destinationPlaceId
+                        }
+                    }).done((data) => {
+                      console.log('RESPONSE');
+                      console.log(data);
+                      
+            // The location of Uluru
+            let uluru = [];
+            for (let i = 0; i< data.result.length ; i++) {
+              let lat1 = parseFloat(data.result[i].lat);
+              let lng1 = parseFloat(data.result[i].lng);
+              let objCoordinates = {lat: lat1 , lng: lng1};
+              uluru.push(objCoordinates);
+            }
+        var directionsService = new google.maps.DirectionsService;
+        var directionsDisplay = new google.maps.DirectionsRenderer({suppressMarkers : true});
+        var map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 6,
+          center: uluru[0]
+        });
+        directionsDisplay.setMap(map);
+
+      
+
+     
+        var waypts = [];
+        for (var i = 0; i < uluru.length; i++) {
+          
+            waypts.push({
+              location: uluru[i],
+              stopover: true,
+            });
+          }
+        
+
+        directionsService.route({
+          origin: { placeId: originPlaceId },
+          destination: { placeId: destinationPlaceId },
+          waypoints: waypts,
+          optimizeWaypoints: false,
+          travelMode: 'DRIVING'
+        }, function(response, status) {
+          if (status === 'OK') {
+            var markerCounter = 1;
+            directionsDisplay.setDirections(response);
+            var route = response.routes[0];
+        // start marker
+            addMarker(route.legs[0].start_location, markerCounter++);
+        // the rest
+            for (var i = 0; i < route.legs.length; i++) {
+            addMarker(route.legs[i].end_location, markerCounter++);
+      }
+          } else {
+            window.alert('Directions request failed due to ' + status);
+          }
+        });
+        function addMarker(position, i ) {
+          console.log(uluru.length + 'uluru lenght')
+          console.log(i)
+          if(i == 1) {
+            console.log('A');
+            return new google.maps.Marker({
+      icon: 'http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=' + 'A' + '|FF0000|000000',
+      position: position,
+      map: map,
+    })
+          }
+          if (i == uluru.length +2) {
+            console.log('B')
+            return new google.maps.Marker({
+      icon: 'http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=' + 'B' + '|FF0000|000000',
+      position: position,
+      map: map,
+    })
+          } 
+          if(i>1 && i<uluru.length +2){
+            console.log('BENZINLIK')
+            let a  = i -1;
+            return new google.maps.Marker({
+      icon: 'http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=' + a + '|0000FF|000000',
+      position: position,
+      map: map,
+      title: 'station name: '+data.result[i-2].station + '   amount: '+ data.gasAmount[i-2] + ' litres' +'     price: '+data.result[i-2].reg_price 
+    })
+          }
+   
+  }
+      
+                          });
+            
+             
+                 }
+    </script>
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=API_KEYc&libraries=places&callback=initMap"
+      async
+      defer
+    ></script>
+    <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.2.1.min.js"></script>
+    <div id="temas-form">
+          <form id="temas" method="post" action="">
+          <fieldset>
+    <table border="0">
+   <tr><td> 
+          <label for="Depo Capacity">Depo Capacity (liters)</label>
+    </td><td>      <input id='DepoCapacity' type="number" ad="DepoCapacity">
+   </td></tr> 
+   <br></br>
+   <tr><td>
+          <label for="Remaining Gas">Remaining Gas (liters)</label>
+          </td><td><input id='RemainingGas' type="number" ad="Remaining Gas">
+    </td></tr>
+   <br></br>
+   <tr><td>
+          <label for="Average Gas Consumption (per mile)">Average Gas Consumption (per mile)</label>
+          </td><td><input id='Average' type="number" ad="Average Gas Consumption (per mile)">
+  </td></tr>
+    </table><br></br>
+          <input type="submit" ad="submit" id="submit" value="Cheap Trip" onclick="buttonOne(); return false" />
+          <input type="submit" ad="submit" id="submit" value="Clear "  href="input.html"/>                    
+          </fieldset>
+               </form>
+</form><body bgcolor="#708090">
+   </body>
+</html>
